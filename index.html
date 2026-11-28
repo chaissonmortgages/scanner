@@ -176,6 +176,19 @@ input[type=file] { display: none; }
   </div>
 </div>
 
+<!-- Upload source sheet -->
+<div class="sheet-wrap" id="pickSheet">
+  <div class="sheet">
+    <h2>Upload from</h2>
+    <div class="row" style="margin-top:0">
+      <button class="btn" id="pickPhotos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>Photos</button>
+      <button class="btn" id="pickFiles"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>Files / Drive</button>
+    </div>
+    <div class="note">Files / Drive opens your phone's file browser. Tap the menu there to switch to Google Drive.</div>
+    <div class="row"><button class="btn" id="pickClose">Cancel</button></div>
+  </div>
+</div>
+
 <!-- Save sheet -->
 <div class="sheet-wrap" id="saveSheet">
   <div class="sheet" id="saveForm">
@@ -203,6 +216,8 @@ input[type=file] { display: none; }
 
 <input type="file" id="camIn" accept="image/*" capture="environment">
 <input type="file" id="pickIn" accept="image/*" multiple>
+<!-- A non-image type in accept makes Android open the Files app (with Drive) instead of the photo picker -->
+<input type="file" id="fileIn" accept="image/*,application/octet-stream" multiple>
 <div id="toast"></div>
 <div id="progress"><div class="spin"></div><div id="progressText">Working...</div></div>
 
@@ -569,13 +584,20 @@ let batchSize = 0;
 let replacing = null;    // page whose photo is being replaced
 
 $('#camBtn').onclick = () => { replacing = null; $('#camIn').click(); };
-$('#uploadBtn').onclick = () => { replacing = null; $('#pickIn').click(); };
+$('#uploadBtn').onclick = () => { replacing = null; sheet('#pickSheet', true); };
+$('#pickPhotos').onclick = () => { sheet('#pickSheet', false); $('#pickIn').click(); };
+$('#pickFiles').onclick = () => { sheet('#pickSheet', false); $('#fileIn').click(); };
+$('#pickClose').onclick = () => sheet('#pickSheet', false);
+$('#pickSheet').onclick = e => { if (e.target.id === 'pickSheet') sheet('#pickSheet', false); };
 $('#addPage').onclick = () => { replacing = null; $('#camIn').click(); };
 $('#camIn').onchange = e => { addFiles([...e.target.files]); e.target.value = ''; };
 $('#pickIn').onchange = e => { addFiles([...e.target.files]); e.target.value = ''; };
+$('#fileIn').onchange = e => { addFiles([...e.target.files]); e.target.value = ''; };
 
 async function addFiles(files) {
-  files = files.filter(f => f.type.startsWith('image/') || /\.(jpe?g|png|webp|heic)$/i.test(f.name));
+  const all = files.length;
+  files = files.filter(f => f.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|heif|gif|bmp)$/i.test(f.name));
+  if (files.length < all) toast(files.length ? `Skipped ${all - files.length} file(s) that aren't photos` : 'Pick a photo (JPG or PNG). Other files can\'t be added.', 3500);
   if (!files.length) return;
   progress(files.length > 1 ? `Loading ${files.length} photos...` : 'Loading photo...');
   try {
@@ -929,6 +951,7 @@ addEventListener('popstate', () => {
   history.pushState({ s: 'app' }, '');
   if ($('#saveSheet').classList.contains('on')) return sheet('#saveSheet', false);
   if ($('#moreSheet').classList.contains('on')) return sheet('#moreSheet', false);
+  if ($('#pickSheet').classList.contains('on')) return sheet('#pickSheet', false);
   if ($('#crop').classList.contains('on')) return $('#cropCancel').click();
   if ($('#edit').classList.contains('on')) return $('#editDone').click();
 });

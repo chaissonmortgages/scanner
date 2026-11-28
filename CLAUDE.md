@@ -17,6 +17,6 @@ Personal document scanner PWA for Mack's Android phone. Not a product. Keep it s
 - Screens: `#home`, `#crop`, `#edit`, plus `#saveSheet` and `#moreSheet`.
 
 ## Style rules
-- Mobile first, Android only, big tap targets.
+- Mobile first, big tap targets. Runs on Android and as an installed desktop app on Mack's Windows PC. `DESKTOP` (fine pointer, not Android) turns on `setupDesktop()`: `body.desktop` CSS, no camera button, drag and drop, paste, keyboard, Save as via `showSaveFilePicker`, and `launchQueue` for file handlers in the manifest.
 - Never use em dashes in UI text or comments.
 - Don't add libraries or a build step unless asked.

@@ -16,7 +16,9 @@ My own phone document scanner, like Tap Scanner. One HTML file, no build step, n
 
 Netlify project `mack-scanner-4t8w2`, linked to this repo. Every push to `main` redeploys, and the installed app grabs the new version the next time it opens with signal. Not linked from anywhere and kept out of search engines.
 
-Install: open the link in Chrome on the phone, menu > Install app.
+Install on the phone: open the link in Chrome, menu > Install app.
+
+Install on the Windows PC: open the link in Chrome or Edge, click the install icon in the address bar (or menu > Cast, save and share > Install page as app). On the computer it gets a wide layout, drag and drop, Ctrl+V paste, a Save as window (pick your Google Drive folder), and Open with Scanner for PDFs and photos in File Explorer.
 
 ## Notes
 

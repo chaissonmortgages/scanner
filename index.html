@@ -100,6 +100,34 @@ header h1 { font-size: 20px; margin: 0; flex: 1; white-space: nowrap; overflow: 
   animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 input[type=file] { display: none; }
+
+/* ---------- Desktop (Windows app) ---------- */
+#dropHint { position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center;
+  background: rgba(15,27,45,.85); border: 4px dashed var(--accent); font-size: 22px; font-weight: 600; pointer-events: none; }
+#dropHint.on { display: flex; }
+body.desktop .sheet-wrap { align-items: center; justify-content: center; }
+body.desktop .sheet { max-width: 480px; border-radius: 20px; }
+body.desktop #grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); padding: 8px 24px 120px; gap: 20px; }
+body.desktop .dock { justify-content: flex-end; }
+body.desktop .dock .btn { flex: 0 0 190px; }
+body.desktop #crop .bar { justify-content: center; }
+body.desktop #crop .bar .btn { flex: 0 0 320px; }
+body.desktop .thumb { cursor: pointer; }
+body.desktop .thumb:hover { outline: 2px solid var(--accent); }
+@media (min-width: 900px) {
+  body.desktop #edit.on { display: grid; grid-template-columns: 1fr 380px;
+    grid-template-rows: auto auto auto auto 1fr auto;
+    grid-template-areas: "head head" "stage presets" "stage adjust" "stage tools" "stage gap" "stage bar";
+    background: linear-gradient(to left, var(--panel) 380px, transparent 380px); }
+  body.desktop #edit header { grid-area: head; background: var(--bg); }
+  body.desktop #editStage { grid-area: stage; min-height: 0; padding: 20px; }
+  body.desktop #presets { grid-area: presets; flex-wrap: wrap; overflow: visible; justify-content: flex-start; padding: 18px; }
+  body.desktop .preset canvas { width: 72px; height: 92px; }
+  body.desktop #adjust { grid-area: adjust; display: block; padding: 4px 20px; }
+  body.desktop #adjBtn { display: none; }
+  body.desktop #edit .tools { grid-area: tools; flex-wrap: wrap; justify-content: flex-start; gap: 6px; padding: 12px 14px; }
+  body.desktop #edit .bar { grid-area: bar; }
+}
 </style>
 </head>
 <body>
@@ -211,7 +239,7 @@ input[type=file] { display: none; }
   </div>
   <div class="sheet" id="saveDone" style="display:none">
     <div class="done-msg"><div class="big">&#10003;</div><h2 id="doneName">Saved</h2>
-      <div class="note">It's in your Downloads folder. Open Drive and tap + Upload to add it.</div></div>
+      <div class="note" id="doneNote"></div></div>
     <div class="row"><button class="btn" id="doneKeep">Keep editing</button><button class="btn primary" id="doneNew">Start new scan</button></div>
     <div class="row"><button class="btn" id="doneShare">Share to Drive instead</button></div>
   </div>
@@ -222,6 +250,7 @@ input[type=file] { display: none; }
 <!-- Allowing PDFs also makes Android open the Files app (with Drive) instead of the photo picker -->
 <input type="file" id="fileIn" accept="image/*,application/pdf" multiple>
 <div id="toast"></div>
+<div id="dropHint">Drop photos or PDFs to add them</div>
 <div id="progress"><div class="spin"></div><div id="progressText">Working...</div></div>
 
 <script>
@@ -570,7 +599,7 @@ async function renderHome() {
   $('#saveBtn').disabled = !pages.length;
   const grid = $('#grid');
   if (!pages.length) {
-    grid.innerHTML = `<div class="empty"><div class="big">&#128196;</div>Take a photo or upload one to start a scan.<br>Add as many pages as you like, then save it as one PDF.</div>`;
+    grid.innerHTML = `<div class="empty"><div class="big">&#128196;</div>${DESKTOP ? 'Drag photos or PDFs here, paste a picture with Ctrl+V, or click Upload.' : 'Take a photo or upload one to start a scan.'}<br>Add as many pages as you like, then save it as one PDF.</div>`;
     return;
   }
   grid.innerHTML = pages.map((p, i) => `<button class="thumb" data-i="${i}"><img alt=""><span class="num">${i + 1}</span></button>`).join('');
@@ -855,7 +884,7 @@ $('#editDone').onclick = () => { const p = pages[editIdx]; if (p) save(p); editI
 
 // swipe left/right on the preview to change page
 (() => { let sx = null;
-  $('#editStage').addEventListener('pointerdown', e => sx = e.clientX);
+  $('#editStage').addEventListener('pointerdown', e => sx = e.pointerType === 'mouse' ? null : e.clientX);
   $('#editStage').addEventListener('pointerup', e => { if (sx === null) return; const d = e.clientX - sx; sx = null;
     if (d < -70 && editIdx < pages.length - 1) openEdit(editIdx + 1); else if (d > 70 && editIdx > 0) openEdit(editIdx - 1); });
 })();
@@ -960,7 +989,7 @@ $('#saveBtn').onclick = () => {
   if (!pages.length) return;
   $('#titleIn').value = meta.title || defaultTitle(); segs();
   $('#saveForm').style.display = ''; $('#saveDone').style.display = 'none';
-  $('#shareRow').style.display = canShareFiles() ? '' : 'none';
+  $('#shareRow').style.display = !DESKTOP && canShareFiles() ? '' : 'none';
   $('#saveNote').textContent = `${pages.length} page${pages.length > 1 ? 's' : ''}`;
   sheet('#saveSheet', true);
   setTimeout(() => { $('#titleIn').focus(); $('#titleIn').select(); }, 150);
@@ -983,11 +1012,26 @@ const pdfKey = () => JSON.stringify([meta.size, meta.quality, pages.map(p => [p.
 
 $('#saveGo').onclick = async () => {
   try {
+    // On the computer, ask where to save first (the picker needs the click, so it comes before the PDF is built)
+    let handle = null;
+    if (DESKTOP && window.showSaveFilePicker) {
+      try {
+        handle = await showSaveFilePicker({ id: 'scanner-save', suggestedName: fileName(), startIn: 'documents',
+          types: [{ description: 'PDF', accept: { 'application/pdf': ['.pdf'] } }] });
+      } catch (e) { if (e.name === 'AbortError') return; handle = null; }
+    }
     const file = await getPdf(); progress(null);
-    const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name;
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
-    $('#doneName').textContent = file.name;
-    $('#doneShare').parentElement.style.display = canShareFiles() ? '' : 'none';
+    if (handle) {
+      const w = await handle.createWritable(); await w.write(file); await w.close();
+      $('#doneNote').textContent = 'Saved to the folder you picked. It remembers that folder for next time.';
+      $('#doneName').textContent = handle.name;
+    } else {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+      $('#doneNote').textContent = DESKTOP ? "It's in your Downloads folder." : "It's in your Downloads folder. Open Drive and tap + Upload to add it.";
+      $('#doneName').textContent = file.name;
+    }
+    $('#doneShare').parentElement.style.display = !DESKTOP && canShareFiles() ? '' : 'none';
     $('#saveForm').style.display = 'none'; $('#saveDone').style.display = '';
   } catch (err) { console.error(err); progress(null); toast('Something went wrong making the PDF'); }
 };
@@ -1013,6 +1057,59 @@ addEventListener('popstate', () => {
   if ($('#pickSheet').classList.contains('on')) return sheet('#pickSheet', false);
   if ($('#crop').classList.contains('on')) return $('#cropCancel').click();
   if ($('#edit').classList.contains('on')) return $('#editDone').click();
+});
+
+/* ---------- Desktop (installed as a Windows app) ---------- */
+function setupDesktop() {
+  document.body.classList.add('desktop');
+  $('#camBtn').style.display = 'none';
+  $('#saveGo').textContent = 'Save to computer';
+  $('#uploadBtn').onclick = () => { replacing = null; $('#fileIn').click(); };
+  $('#addPage').onclick = () => { replacing = null; $('#fileIn').click(); };
+  $('#addPage').textContent = '+ Add pages';
+  $('#retake').textContent = 'Replace page';
+  $('#retake').onclick = () => { sheet('#moreSheet', false); replacing = pages[editIdx]; $('#fileIn').click(); };
+  $('#adjust').classList.add('on');
+  // Drag and drop files anywhere on the window
+  let depth = 0;
+  addEventListener('dragenter', e => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); depth++; $('#dropHint').classList.add('on'); } });
+  addEventListener('dragleave', () => { if (--depth <= 0) { depth = 0; $('#dropHint').classList.remove('on'); } });
+  addEventListener('dragover', e => e.preventDefault());
+  addEventListener('drop', e => {
+    e.preventDefault(); depth = 0; $('#dropHint').classList.remove('on');
+    const files = [...(e.dataTransfer.files || [])]; if (files.length) { replacing = null; addFiles(files); }
+  });
+  // Keyboard: Esc goes back, arrows flip pages, Enter finishes a crop
+  addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' && e.target.type === 'text') return;
+    if (e.key === 'Escape') {
+      if ($('#saveSheet').classList.contains('on')) return sheet('#saveSheet', false);
+      if ($('#moreSheet').classList.contains('on')) return sheet('#moreSheet', false);
+      if ($('#crop.on')) return $('#cropCancel').click();
+      if ($('#edit.on')) return $('#editDone').click();
+    }
+    if ($('#edit.on') && !document.querySelector('.sheet-wrap.on')) {
+      if (e.key === 'ArrowRight' && editIdx < pages.length - 1) openEdit(editIdx + 1);
+      if (e.key === 'ArrowLeft' && editIdx > 0) openEdit(editIdx - 1);
+    }
+    if ($('#crop.on') && e.key === 'Enter') $('#cropOk').click();
+  });
+}
+const DESKTOP = matchMedia('(pointer: fine)').matches && !/Android/i.test(navigator.userAgent);
+if (DESKTOP) setupDesktop();
+
+// Paste a screenshot or copied picture (Ctrl+V)
+addEventListener('paste', e => {
+  if (e.target.tagName === 'INPUT') return;
+  const files = [...(e.clipboardData && e.clipboardData.files || [])];
+  if (files.length) { e.preventDefault(); replacing = null; addFiles(files); }
+});
+
+// "Open with Scanner" from File Explorer (installed app)
+if ('launchQueue' in window) launchQueue.setConsumer(async params => {
+  if (!params.files || !params.files.length) return;
+  const files = await Promise.all(params.files.map(h => h.getFile()));
+  replacing = null; addFiles(files);
 });
 
 /* ---------- Start ---------- */

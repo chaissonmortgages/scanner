@@ -4,11 +4,11 @@ My own phone document scanner, like Tap Scanner. One HTML file, no build step, n
 
 ## What it does
 
-- **Camera** or **Upload** photos (pick several at once from the gallery)
+- **Camera** or **Upload**: Photos (gallery) or Files / Drive (photos and PDFs). Each PDF page becomes a page you can crop, rotate or clean up
 - **Crop:** finds the page edges on its own, or drag the four corners (a zoom bubble shows up while dragging). The page gets straightened out flat
 - **Presets:** Original, Magic color, Clean gray, B&W, Grayscale, Lighten, Vivid. Magic color and Clean gray take out shadows and make the paper white
 - **Adjust:** brightness (threshold in B&W), contrast, sharpen. "Use on all" copies the look to every page
-- **Pages:** rotate, re-crop, replace the photo, move earlier or later, delete. Swipe left and right to flip pages
+- **Pages:** rotate one or all pages, re-crop, retake the photo, move earlier or later, delete. Swipe left and right to flip pages
 - **Save PDF:** rename it, pick Letter, A4 or fit to photo, pick quality, then **Save to phone** (goes to Downloads) or **Share** straight to Drive
 - The scan in progress is kept on the phone, so closing the app doesn't lose pages
 
